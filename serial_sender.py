@@ -1,4 +1,5 @@
 import serial
+import serial.tools.list_ports
 import time
 import random
 import platform
@@ -63,14 +64,53 @@ def send_to_serial(port, baudrate=9600, interval=10.0):
             print("串口已关闭")
 
 
-def get_default_port():
-    if platform.system() == 'Windows':
-        return 'COM2'
-    elif platform.system() == 'Darwin':
-        return '/dev/tty.usbserial-2'
-    else:
-        return '/dev/ttyUSB0'
+def list_serial_ports():
+    """列出所有可用串口"""
+    ports = list(serial.tools.list_ports.comports())
+    return ports
+
+
+def select_serial_port():
+    """交互式选择串口"""
+    ports = list_serial_ports()
+
+    if not ports:
+        print("未检测到任何串口！")
+        print("请检查 USB 转串口线是否已连接，或驱动是否安装。")
+        return None
+
+    print("\n=== 可用串口列表 ===")
+    for i, port in enumerate(ports, 1):
+        desc = port.description if port.description else "未知设备"
+        print(f"  [{i}] {port.device} - {desc}")
+
+    default = 1
+    print(f"\n请选择串口编号（直接回车默认 [{default}] {ports[0].device}）:")
+
+    try:
+        choice = input("> ").strip()
+        if choice == "":
+            idx = default - 1
+        else:
+            idx = int(choice) - 1
+            if idx < 0 or idx >= len(ports):
+                print(f"选择无效，使用默认: {ports[0].device}")
+                idx = 0
+    except (ValueError, EOFError):
+        idx = 0
+
+    selected = ports[idx].device
+    print(f"已选择: {selected}")
+    return selected
 
 
 if __name__ == "__main__":
-    send_to_serial(get_default_port(), baudrate=9600, interval=10.0)
+    selected_port = select_serial_port()
+    if selected_port:
+        send_to_serial(selected_port, baudrate=9600, interval=10.0)
+    else:
+        print("程序退出。")
+        try:
+            input("按回车键关闭...")
+        except EOFError:
+            pass
